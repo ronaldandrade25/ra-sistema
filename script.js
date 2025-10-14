@@ -26,6 +26,33 @@ const io = new IntersectionObserver((entries) => {
 document.querySelectorAll('.reveal, .shine').forEach(el => io.observe(el));
 
 // =====================
+// MODO LINK DIRETO (substitui "Ver mais" -> "Ver projeto")
+// Converte cada <button.open> em <a.open target="_blank"> apontando para data-link
+// =====================
+(function convertButtonsToLinks() {
+    document.querySelectorAll('.work .meta .open').forEach(btn => {
+        // já é <a>? só atualiza o texto e atributos
+        const linkHref = btn.dataset?.link || btn.getAttribute('href') || '#';
+        const text = 'Ver projeto';
+
+        // cria <a> do zero para evitar resquícios de eventos
+        const a = document.createElement('a');
+        a.className = btn.className;
+        a.textContent = text;
+        a.href = linkHref;
+        a.target = '_blank';
+        a.rel = 'noopener';
+
+        // preserva data-attrs úteis no novo <a> (ex.: data-img, data-link, data-title)
+        for (const { name, value } of Array.from(btn.attributes)) {
+            if (name.startsWith('data-')) a.setAttribute(name, value);
+        }
+
+        btn.replaceWith(a);
+    });
+})();
+
+// =====================
 // FILTRO PORTFÓLIO
 // =====================
 const chips = document.querySelectorAll('.chip');
@@ -41,22 +68,22 @@ chips.forEach(ch => ch.addEventListener('click', () => {
 }));
 
 // =====================
-// THUMBS: aplica imagem do data-img ao fundo
+// THUMBS: aplica imagem do data-img ao fundo (compatível com <a.open>)
 // =====================
-document.querySelectorAll('.work .thumb').forEach(thumb => {
-    const btn = thumb.parentElement.querySelector('button.open');
-    const img = btn?.dataset.img;
-    if (img) {
+document.querySelectorAll('.work').forEach(card => {
+    const thumb = card.querySelector('.thumb');
+    const trigger = card.querySelector('.open'); // agora é <a>
+    const img = trigger?.dataset?.img;
+    if (thumb && img) {
         const image = new Image();
         image.onload = () => { thumb.style.backgroundImage = `url('${img}')`; };
-        image.onerror = () => { /* mantém fundo escuro se falhar */ };
         image.src = img;
     }
 });
 
 // =====================
-// CAPA INICIAL: projeto em destaque
-// Pega o primeiro card com data-img/data-link e mostra na capa
+// CAPA INICIAL: projeto em destaque (compatível com <a.open>)
+// Pega o primeiro card com data-img/data-link e aponta o CTA
 // =====================
 (function setupHeroShowcase() {
     const firstBtn = document.querySelector('.work .open[data-img][data-link]');
@@ -64,7 +91,7 @@ document.querySelectorAll('.work .thumb').forEach(thumb => {
     const heroVisit = document.getElementById('heroVisit');
     const heroBadge = document.getElementById('heroBadge');
 
-    if (!firstBtn || !heroImg || !heroVisit) return;
+    if (!firstBtn || !heroImg || !heroVisit || !heroBadge) return;
 
     const img = firstBtn.dataset.img;
     const link = firstBtn.dataset.link;
@@ -82,78 +109,10 @@ document.querySelectorAll('.work .thumb').forEach(thumb => {
 })();
 
 // =====================
-// LIGHTBOX DETALHE (com iframe + fallback)
+// DESATIVAR LIGHTBOX (não é mais usado)
+// Mantemos elementos no HTML, mas não registramos nenhum listener
 // =====================
-const lb = document.getElementById('lightbox');
-const lbTitle = document.getElementById('lbTitle');
-const lbDesc = document.getElementById('lbDesc');
-const lbHero = document.getElementById('lbHero');
-const lbClose = document.getElementById('lbClose');
-const lbVisit = document.getElementById('lbVisit');
-
-function renderPreview({ link, img, embed }) {
-    lbHero.innerHTML = '';
-
-    if (embed && link && link !== '#') {
-        const frame = document.createElement('iframe');
-        frame.className = 'lb-iframe';
-        frame.loading = 'lazy';
-        frame.src = link;
-        frame.title = 'Prévia do projeto';
-        const fallbackTimer = setTimeout(() => {
-            if (!frame.contentWindow) {
-                lbHero.innerHTML = img
-                    ? `<img class="lb-img" src="${img}" alt="Prévia do projeto">`
-                    : `<div class="lb-fallback">Não foi possível mostrar a prévia ao vivo.<br/>Clique em <b>Abrir projeto</b> para visitar.</div>`;
-            }
-        }, 2500);
-        frame.addEventListener('load', () => clearTimeout(fallbackTimer));
-        lbHero.appendChild(frame);
-        return;
-    }
-
-    if (img) {
-        lbHero.innerHTML = `<img class="lb-img" src="${img}" alt="Prévia do projeto">`;
-        return;
-    }
-    lbHero.innerHTML = `<div class="lb-fallback">Prévia indisponível. Clique em <b>Abrir projeto</b>.</div>`;
-}
-
-document.querySelectorAll('.open[data-title]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        if ((e.ctrlKey || e.metaKey) && btn.dataset.link && btn.dataset.link !== '#') {
-            window.open(btn.dataset.link, '_blank', 'noopener');
-            return;
-        }
-
-        lbTitle.textContent = btn.dataset.title || 'Projeto';
-        lbDesc.textContent = btn.dataset.desc || '';
-        const link = btn.dataset.link || '#';
-        const img = btn.dataset.img || '';
-        const embed = String(btn.dataset.embed).toLowerCase() === 'true';
-
-        if (link && link !== '#') {
-            lbVisit.style.display = 'inline-flex';
-            lbVisit.href = link;
-            lbVisit.setAttribute('aria-disabled', 'false');
-        } else {
-            lbVisit.style.display = 'none';
-            lbVisit.removeAttribute('href');
-            lbVisit.setAttribute('aria-disabled', 'true');
-        }
-
-        renderPreview({ link, img, embed });
-
-        lb.classList.add('open');
-        lb.setAttribute('aria-hidden', 'false');
-    });
-});
-
-lbClose.addEventListener('click', () => {
-    lb.classList.remove('open');
-    lb.setAttribute('aria-hidden', 'true');
-});
-lb.addEventListener('click', (e) => { if (e.target === lb) lbClose.click(); });
+// (Intencionalmente sem código)
 
 // =====================
 // CONTATO: WhatsApp dinâmico + validação simples
@@ -175,7 +134,11 @@ buildZapURL();
 form.addEventListener('submit', (e) => {
     e.preventDefault();
     const email = document.getElementById('email');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) { alert('Informe um e-mail válido.'); email.focus(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+        alert('Informe um e-mail válido.');
+        email.focus();
+        return;
+    }
     const assunto = 'Novo contato • RA Sistemas';
     const corpo = `Nome: ${document.getElementById('nome').value}\nE-mail: ${email.value}\n\nMensagem:\n${document.getElementById('mensagem').value}`;
     window.location.href = `mailto:contato@rasistemas.com?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
